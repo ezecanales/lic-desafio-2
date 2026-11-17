@@ -1,8 +1,3 @@
-const carritoEjemplo = [
-  { titulo: "Producto 1", precio: 50.99, cantidad: 1 },
-  { titulo: "Producto 2", precio: 10.99, cantidad: 2 }
-];
-
 const productos = {
   1: {
     title: "Mochila Fjällräven Foldsack n.º 1 para laptops de hasta 15 pulgadas",
@@ -95,7 +90,7 @@ const categorias = {
 
 const Tienda = {
   productos: [],
-  carrito: carritoEjemplo,
+  carrito: [],
   filtros: {
     categoria: "",
     texto: ""
@@ -103,6 +98,7 @@ const Tienda = {
 
   async iniciar() {
     this.agregarEventos();
+    this.renderizarCarrito();
     this.actualizarTotalesCarrito();
     await this.cargarProductos();
   },
@@ -292,12 +288,7 @@ const Tienda = {
 
     const botonPagar = document.getElementById("btnPagar");
     if (botonPagar) {
-      botonPagar.addEventListener("click", () => {
-        alert("Gracias por su compra.");
-        this.carrito = [];
-        this.actualizarTotalesCarrito();
-        this.cerrarModal(document.getElementById("modalCarrito"));
-      });
+      botonPagar.addEventListener("click", () => this.pagarCarrito());
     }
 
     document.querySelectorAll(".modal").forEach((modal) => {
@@ -353,6 +344,10 @@ const Tienda = {
     return estrellas;
   },
 
+  calcularSubtotal(item) {
+    return Number(item.precio) * Number(item.cantidad);
+  },
+
   agregarAlCarrito(id) {
     const producto = this.productos.find((item) => item.id === id);
     if (!producto) {
@@ -361,22 +356,28 @@ const Tienda = {
 
     const titulo = producto.title;
     const precio = Number(producto.price);
-    const itemExistente = this.carrito.find((articulo) => articulo.titulo === titulo);
+    const itemExistente = this.carrito.find(
+      (articulo) => articulo.id === producto.id || articulo.titulo === titulo
+    );
 
     if (itemExistente) {
       itemExistente.cantidad += 1;
+      itemExistente.subtotal = this.calcularSubtotal(itemExistente);
     } else {
       this.carrito.push({
+        id: producto.id,
         titulo,
         precio,
-        cantidad: 1
+        cantidad: 1,
+        subtotal: precio
       });
     }
 
     this.actualizarTotalesCarrito();
+    this.renderizarCarrito();
   },
 
-  abrirCarrito() {
+  renderizarCarrito() {
     const cuerpo = document.getElementById("cuerpoCarrito");
     const totalModal = document.getElementById("totalModal");
     if (!cuerpo || !totalModal) {
@@ -385,23 +386,23 @@ const Tienda = {
 
     cuerpo.innerHTML = "";
 
-    if (this.carrito.length === 0) {
-      const filaVacia = document.createElement("tr");
-      filaVacia.innerHTML = '<td colspan="4">Tu carrito está vacío.</td>';
-      cuerpo.appendChild(filaVacia);
-      totalModal.textContent = this.formatoPrecio(0);
-      this.abrirModal(document.getElementById("modalCarrito"));
-      return;
-    }
-
     this.carrito.forEach((item) => {
+      const subtotal = this.calcularSubtotal(item);
       const fila = document.createElement("tr");
-      fila.innerHTML = `
-        <td>${item.titulo}</td>
-        <td>${this.formatoPrecio(item.precio)}</td>
-        <td>${item.cantidad}</td>
-        <td>${this.formatoPrecio(item.precio * item.cantidad)}</td>
-      `;
+
+      const celdaTitulo = document.createElement("td");
+      celdaTitulo.textContent = item.titulo;
+
+      const celdaPrecio = document.createElement("td");
+      celdaPrecio.textContent = this.formatoPrecio(item.precio);
+
+      const celdaCantidad = document.createElement("td");
+      celdaCantidad.textContent = String(item.cantidad);
+
+      const celdaSubtotal = document.createElement("td");
+      celdaSubtotal.textContent = this.formatoPrecio(subtotal);
+
+      fila.append(celdaTitulo, celdaPrecio, celdaCantidad, celdaSubtotal);
       cuerpo.appendChild(fila);
     });
 
@@ -411,23 +412,42 @@ const Tienda = {
     cuerpo.appendChild(relleno);
 
     totalModal.textContent = this.formatoPrecio(this.calcularTotal());
+  },
+
+  abrirCarrito() {
+    this.renderizarCarrito();
     this.abrirModal(document.getElementById("modalCarrito"));
   },
 
   calcularTotal() {
-    return this.carrito.reduce((total, item) => total + Number(item.precio) * Number(item.cantidad), 0);
+    return this.carrito.reduce((total, item) => total + this.calcularSubtotal(item), 0);
   },
 
   actualizarTotalesCarrito() {
+    const totalFormateado = this.formatoPrecio(this.calcularTotal());
+
     const totalCarrito = document.getElementById("totalCarrito");
     if (totalCarrito) {
-      totalCarrito.textContent = this.formatoPrecio(this.calcularTotal());
+      totalCarrito.textContent = totalFormateado;
     }
 
     const totalModal = document.getElementById("totalModal");
-    if (totalModal && !document.getElementById("modalCarrito").hidden) {
-      totalModal.textContent = this.formatoPrecio(this.calcularTotal());
+    if (totalModal) {
+      totalModal.textContent = totalFormateado;
     }
+  },
+
+  pagarCarrito() {
+    if (this.carrito.length === 0) {
+      alert("El carrito está vacío. Agrega productos antes de pagar.");
+      return;
+    }
+
+    alert("¡Compra realizada con éxito! Gracias por su compra.");
+    this.carrito = [];
+    this.renderizarCarrito();
+    this.actualizarTotalesCarrito();
+    this.cerrarModal(document.getElementById("modalCarrito"));
   },
 
   abrirModal(modal) {
