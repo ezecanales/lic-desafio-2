@@ -320,16 +320,28 @@ const Tienda = {
     const detalleImagen = document.getElementById("detalleImagen");
     const botonAgregar = document.getElementById("btnAgregar");
 
+    const calificacion = Number(producto.rating?.rate || 0);
+    const votos = Number(producto.rating?.count || 0);
+
     detalleTitulo.textContent = producto.title;
-    detallePrecio.textContent = this.formatoPrecio(Number(producto.price));
-    detalleDescripcion.textContent = producto.description;
+    detallePrecio.innerHTML = `<sup>$</sup>${Number(producto.price).toFixed(2)}`;
+    detalleDescripcion.textContent = producto.description || "";
     detalleEtiqueta.textContent = producto.category;
-    detalleEstrellas.innerHTML = this.crearEstrellas(Number(producto.rating?.rate || 0));
+
+    detalleEstrellas.innerHTML = this.crearEstrellas(calificacion);
+    const textoVotos = document.createElement("span");
+    textoVotos.className = "estrellas__votos";
+    textoVotos.textContent = `${calificacion.toFixed(1)} (${votos} reseñas)`;
+    detalleEstrellas.appendChild(textoVotos);
+    detalleEstrellas.setAttribute("aria-label", `Calificación: ${calificacion.toFixed(1)} de 5 estrellas`);
 
     const imagen = document.createElement("img");
     imagen.src = producto.image;
     imagen.alt = producto.title;
+    // Si la imagen falla, se deja el marcador gris del diseño
+    imagen.addEventListener("error", () => imagen.remove());
     detalleImagen.replaceChildren(imagen);
+
     botonAgregar.dataset.id = String(producto.id);
 
     this.abrirModal(document.getElementById("modalDetalle"));
@@ -339,7 +351,7 @@ const Tienda = {
     let estrellas = "";
     for (let i = 1; i <= 5; i++) {
       const clase = i <= Math.round(calificacion) ? "estrella llena" : "estrella";
-      estrellas += `<span class="${clase}">&#9733;</span>`;
+      estrellas += `<span class="${clase}" aria-hidden="true">&#9733;</span>`;
     }
     return estrellas;
   },
@@ -455,18 +467,37 @@ const Tienda = {
       return;
     }
 
+    // Se recuerda el botón que abrió el modal para devolverle el foco al cerrar
+    this.elementoPrevio = document.activeElement;
     modal.hidden = false;
     document.body.classList.add("sin-scroll");
+
+    const caja = modal.querySelector(".modal__caja");
+    if (caja) {
+      caja.scrollTop = 0;
+    }
+    const primerBoton = modal.querySelector("button");
+    if (primerBoton) {
+      primerBoton.focus();
+    }
   },
 
   cerrarModal(modal) {
-    if (!modal) {
+    if (!modal || modal.hidden) {
       return;
     }
 
     modal.hidden = true;
+
+    if (modal.id === "modalDetalle") {
+      delete document.getElementById("btnAgregar").dataset.id;
+    }
+
     if (!document.querySelector(".modal:not([hidden])")) {
       document.body.classList.remove("sin-scroll");
+      if (this.elementoPrevio && document.body.contains(this.elementoPrevio)) {
+        this.elementoPrevio.focus();
+      }
     }
   }
 };
