@@ -96,25 +96,21 @@ const Tienda = {
     texto: ""
   },
 
-  async iniciar() {
+  iniciar() {
     this.agregarEventos();
     this.renderizarCarrito();
     this.actualizarTotalesCarrito();
-    await this.cargarProductos();
+    this.cargarProductos();
   },
 
-  async cargarProductos() {
+  cargarProductos() {
     const lista = document.getElementById("listaProductos");
 
     try {
-      const respuesta = await fetch("products.json");
-      if (!respuesta.ok) {
-        throw new Error(`Error HTTP ${respuesta.status} al cargar products.json`);
-      }
+      const datos = datosProductosJSON;
 
-      const datos = await respuesta.json();
       if (!Array.isArray(datos)) {
-        throw new Error("El archivo products.json debe contener una lista de productos");
+        throw new Error("Los datos de productos deben ser una lista");
       }
 
       this.productos = datos.map((producto) => ({
@@ -122,13 +118,48 @@ const Tienda = {
         ...productos[producto.id],
         category: categorias[producto.category] || producto.category
       }));
+      this.poblarSlider();
       this.cargarCategorias();
       this.mostrarProductos();
     } catch (error) {
       console.error("No se pudo cargar el catálogo de productos:", error);
-      lista.textContent = "No se pudo cargar el catálogo. Verifica products.json y vuelve a intentarlo.";
+      lista.textContent = "No se pudo cargar el catálogo. Verifica los datos de productos e inténtalo de nuevo.";
       lista.setAttribute("role", "alert");
     }
+  },
+
+  poblarSlider() {
+    const pista = document.querySelector("#slider .slider__pista");
+    if (!pista || this.productos.length === 0) {
+      return;
+    }
+
+    // Seleccionar 3 productos al azar sin repetir
+    const copia = [...this.productos];
+    const cantidad = Math.min(3, copia.length);
+    const seleccionados = [];
+
+    for (let i = 0; i < cantidad; i++) {
+      const indice = Math.floor(Math.random() * copia.length);
+      seleccionados.push(copia.splice(indice, 1)[0]);
+    }
+
+    pista.innerHTML = "";
+
+    seleccionados.forEach((producto, i) => {
+      const item = document.createElement("div");
+      item.className = "slider__item" + (i === 0 ? " activo" : "");
+
+      const imagen = document.createElement("img");
+      imagen.src = producto.image;
+      imagen.alt = producto.title;
+
+      item.appendChild(imagen);
+      pista.appendChild(item);
+    });
+
+    // Inicializar el slider ahora que tiene contenido
+    Slider.iniciar("slider");
   },
 
   cargarCategorias() {
@@ -185,9 +216,36 @@ const Tienda = {
     lista.innerHTML = "";
 
     if (productosFiltrados.length === 0) {
-      const vacio = document.createElement("p");
+      const vacio = document.createElement("div");
       vacio.className = "productos__vacio";
-      vacio.textContent = "No se encontraron productos con esos filtros.";
+      vacio.setAttribute("role", "alert");
+
+      const icono = document.createElement("span");
+      icono.className = "productos__vacio-icono";
+      icono.setAttribute("aria-hidden", "true");
+      icono.textContent = "🔍";
+
+      const mensaje = document.createElement("p");
+      mensaje.className = "productos__vacio-mensaje";
+
+      const textoActual = this.filtros.texto.trim();
+      const categoriaActual = this.filtros.categoria;
+
+      if (textoActual && categoriaActual) {
+        mensaje.textContent = `No se encontraron productos con "${textoActual}" en la categoría "${categoriaActual}".`;
+      } else if (textoActual) {
+        mensaje.textContent = `No se encontraron productos con "${textoActual}".`;
+      } else if (categoriaActual) {
+        mensaje.textContent = `No hay productos disponibles en la categoría "${categoriaActual}".`;
+      } else {
+        mensaje.textContent = "No se encontraron productos.";
+      }
+
+      const sugerencia = document.createElement("p");
+      sugerencia.className = "productos__vacio-sugerencia";
+      sugerencia.textContent = "Intenta con otro término de búsqueda o selecciona otra categoría.";
+
+      vacio.append(icono, mensaje, sugerencia);
       lista.appendChild(vacio);
       this.actualizarNombreCategoria();
       return;
@@ -264,6 +322,12 @@ const Tienda = {
     if (selectorCategoria) {
       selectorCategoria.addEventListener("change", (evento) => {
         this.filtros.categoria = evento.target.value;
+        // Limpiar el buscador de texto al cambiar de categoría
+        const buscadorInput = document.getElementById("buscador");
+        if (buscadorInput) {
+          buscadorInput.value = "";
+          this.filtros.texto = "";
+        }
         this.mostrarProductos();
       });
     }

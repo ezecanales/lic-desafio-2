@@ -92,6 +92,4 @@ const Slider = {
   }
 };
 
-document.addEventListener("DOMContentLoaded", () => {
-  Slider.iniciar("slider");
-});
+// El slider se inicializa desde tienda.js después de cargar los productos
